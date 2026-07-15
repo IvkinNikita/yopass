@@ -14,8 +14,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
 
 YOPASS_URL = "https://pass.rtlabs.ru"
 DEFAULT_INPUT_FILE = "text.txt"
@@ -81,41 +79,6 @@ def load_pgpy():
             f"PGPy установлена, но не импортируется из {DEPENDENCIES_DIR}"
         ) from error
 
-def check_yopass():
-    """
-    Проверяет доступность pass.rtlabs.ru.
-    """
-
-    print("Проверка доступности Yopass...")
-
-    request = Request(
-        "https://pass.rtlabs.ru/",
-        headers={
-            "User-Agent": "yopass-split/1.0",
-        },
-    )
-
-    try:
-        with urlopen(request, timeout=10) as response:
-            print(f"Yopass доступен (HTTP {response.status})")
-            return
-    except HTTPError as e:
-        # Даже если получили 403/404 — значит сервер отвечает.
-        print(f"Yopass отвечает (HTTP {e.code})")
-        return
-    except URLError as e:
-        raise RuntimeError(
-            f"""Не удалось подключиться к pass.rtlabs.ru
-
-Причина:
-{e.reason}
-
-Скорее всего:
-- отсутствует VPN;
-- сервер недоступен из текущей сети;
-- среда выполнения (например Trinket) не имеет доступа к корпоративной сети.
-"""
-        )
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -334,16 +297,8 @@ def upload_part(
 
 
 def main() -> int:
-  
     args = parse_arguments()
-    
-    try:
-      validate_arguments(args)
-      check_yopass()
-    except (ValueError, RuntimeError) as error:
-      print(error, file=sys.stderr)
-      return 1
-      
+
     try:
         validate_arguments(args)
     except ValueError as error:
@@ -422,6 +377,13 @@ def main() -> int:
     except RuntimeError as error:
         print(f"Ошибка: {error}", file=sys.stderr)
         return 1
+
+    try:
+        if parts_dir.exists():
+            shutil.rmtree(parts_dir)
+            print(f"Временный каталог удалён: {parts_dir}")
+    except OSError as error:
+        print(f"Предупреждение: не удалось удалить {parts_dir}: {error}", file=sys.stderr)
 
     print()
     print(f"Готово. Получено ссылок: {len(parts)}")
